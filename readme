@@ -1,0 +1,5 @@
+Tailwind (keep)
+shadcn/ui (for UI primitives)
+FullCalendar or Frappe Gantt (for scheduling)
+ECharts (for forecasting visualization)
+TanStack Table (for data views)
