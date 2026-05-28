@@ -1,79 +1,41 @@
-import { useRef, useEffect, useState } from "react";
+import { useState } from "react";
 import { projects } from "../mocks/projects";
 import { runForecastEngine } from "../engine/forecastEngine";
+import { computeCriticalPath } from "../engine/graph/criticalPath";
+import { testTasks } from "../mocks/testSchedule";
+import { injectDelay } from "../engine/simulation/delayPropagation";
+import GanttChart from "../components/gantt/ganttChart";
 
-const DAYS = 30;
-
-function DependencyLines({
-  tasks,
-  positions,
-  containerRef,
-}: {
-  tasks: any[];
-  positions: Record<string, DOMRect>;
-  containerRef: React.RefObject<HTMLDivElement | null>;
-}) {
-  const containerRect = containerRef.current?.getBoundingClientRect();
-
-  if (!containerRect) return null;
-
-  return (
-    <svg
-      className="absolute top-0 left-0 w-full h-full pointer-events-none z-10"
-      style={{ overflow: "visible" }}
-    >
-      {tasks.map((task) =>
-        (task.dependsOn || []).map((depId: string) => {
-          const from = positions[depId];
-          const to = positions[task.id];
-
-          if (!from || !to) return null;
-
-          const x1 = from.right - containerRect.left;
-          const y1 = from.top - containerRect.top + from.height / 2;
-          const x2 = to.left - containerRect.left;
-          const y2 = to.top - containerRect.top + to.height / 2;
-
-          return (
-            <line
-              key={`${depId}-${task.id}`}
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
-              stroke="gray"
-              strokeWidth="2"
-            />
-          );
-        }),
-      )}
-    </svg>
-  );
-}
+const criticalPathResults = computeCriticalPath(testTasks);
+console.log(criticalPathResults);
+const injectResults = injectDelay(testTasks, "B", 3);
+console.log(injectResults);
 
 export default function Schedule() {
-  const project = projects[0];
+  const mockProject = {
+    id: "test-project",
+    name: "Graph Simulation Project",
+    tasks: testTasks.map((t) => ({
+      ...t,
+      name: `Task ${t.id}`, // Fallback label for layout
+      startDay: 0,
+      risk: (t.id === "B" ? "high" : "low") as "low" | "medium" | "high", // Optional styling
+    })),
+  };
   const [delay, setDelay] = useState(0);
-  const result = runForecastEngine(project, delay);
-  const tasks = result.tasks;
-  const [positions, setPositions] = useState<Record<string, DOMRect>>({});
-  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const newPositions: Record<string, DOMRect> = {};
-
-    Object.entries(rowRefs.current).forEach(([id, el]) => {
-      if (el) {
-        newPositions[id] = el.getBoundingClientRect();
-      }
-    });
-
-    setPositions(newPositions);
-  }, [tasks, delay]);
+  const simulation = runForecastEngine(mockProject, delay);
+  const simulatedTasks = simulation.tasks;
+  const graphResults = computeCriticalPath(
+    simulatedTasks.map((task) => ({
+      ...task,
+      dependsOn: task.dependsOn ?? [],
+    })),
+  );
+  const metrics = graphResults.tasks;
+  const criticalPath = graphResults.criticalPath;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       <div>
         <h2 className="text-3xl font-bold mb-4">Schedule View</h2>
         <p className="text-gray-500">Interactive Project Schedule Simulation</p>
@@ -95,76 +57,26 @@ export default function Schedule() {
         />
       </div>
 
-      <div
-        ref={containerRef}
-        className="relative overflow-x-auto border rounded-lg bg-white"
-      >
-        <DependencyLines
-          tasks={tasks}
-          positions={positions}
-          containerRef={containerRef}
-        />
-
-        <div
-          className="grid border-b bg-gray-100 text-sm font-medium"
-          style={{
-            gridTemplateColumns: `200px repeat(${DAYS}, minmax(40px, 1fr))`,
-          }}
-        >
-          <div className="p-2 border-r">Task</div>
-
-          {Array.from({ length: DAYS }).map((_, i) => (
-            <div key={i} className="p-2 border-r text-center text-xs">
-              {i + 1}
-            </div>
-          ))}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-900 text-white p-4 rounded-lg text-xs font-mono shadow-md">
+        <div>
+          Total Projected Duration:{" "}
+          <span className="text-emerald-400 font-bold text-sm">
+            {graphResults.projectDuration} Days
+          </span>
         </div>
-
-        {tasks.map((task) => {
-          const adjustedStart = task.startDay + delay;
-
-          return (
-            <div
-              key={task.id}
-              ref={(el) => {
-                rowRefs.current[task.id] = el;
-              }}
-              className="relative z-20 grid border-b items-center"
-              style={{
-                gridTemplateColumns: `200px repeat(${DAYS}, minmax(40px, 1fr))`,
-              }}
-            >
-              <div className="p-3 border-r font-medium">
-                <div>{task.name}</div>
-                <div className="text-xs text-gray-500">
-                  Duration: {task.duration}d
-                </div>
-              </div>
-
-              {Array.from({ length: DAYS }).map((_, day) => {
-                const active =
-                  day >= adjustedStart && day < adjustedStart + task.duration;
-
-                return (
-                  <div
-                    key={day}
-                    className="h-14 border-r border-gray-200 relative"
-                  >
-                    {active && (
-                      <div
-                        className={`
-                        absolute inset-1 rounded transition-all duration-300
-                        ${task.risk === "high" ? "bg-red-400" : "bg-blue-400"}
-                        `}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
+        <div className="sm:text-right text-slate-400">
+          Net Simulation Shift:{" "}
+          <span
+            className={
+              simulation.projectDelay > 0 ? "text-amber-400 font-semibold" : ""
+            }
+          >
+            +{simulation.projectDelay}d
+          </span>
+        </div>
       </div>
+
+      <GanttChart metrics={metrics} criticalPath={criticalPath} />
     </div>
   );
 }

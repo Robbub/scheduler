@@ -3,3 +3,146 @@ shadcn/ui (for UI primitives)
 FullCalendar or Frappe Gantt (for scheduling)
 ECharts (for forecasting visualization)
 TanStack Table (for data views)
+
+🧭 Schedule Delay + Forecast Project — Next-Step Roadmap
+🟢 PHASE 1 — Visualization Core (DONE)
+
+You already built:
+
+Vite + React + Tailwind frontend
+Basic schedule grid (Gantt-like layout)
+Task simulation slider (delay input)
+Dependency rendering (SVG overlay)
+DOM measurement system (refs + getBoundingClientRect)
+Orthogonal dependency arrows
+
+👉 Outcome: static + semi-interactive schedule viewer
+
+🟡 PHASE 2 — Graph Intelligence Layer (NEXT PRIORITY)
+
+This is where your system becomes “smart”.
+
+2.1 Critical Path Engine (HIGHEST PRIORITY)
+
+Build a pure function:
+
+Input: tasks + dependencies
+Output:
+critical path list
+project duration
+slack per task
+
+Key concepts:
+
+DAG traversal
+topological sorting
+longest path in weighted graph
+
+👉 Outcome: UI can highlight “what actually matters”
+
+2.2 Task Impact Propagation
+
+When a task shifts:
+
+propagate delay through dependency chain
+compute ripple effect
+
+👉 Outcome:
+
+“if task X slips, here is the full impact”
+
+🟠 PHASE 3 — Scenario + Simulation Layer
+3.1 Scenario Engine v1
+baseline schedule
+delayed schedule
+ML-adjusted schedule (later)
+
+Compare:
+
+start shifts
+end date changes
+critical path changes
+
+👉 Outcome: side-by-side planning analysis
+
+3.2 Interactive Simulation Mode
+slider = delay injection
+click task = force delay
+drag tasks (optional later)
+
+👉 Outcome:
+
+“playable schedule system”
+
+🔵 PHASE 4 — ML Forecast Integration (CORE GOAL)
+
+This is where your backend/ML work plugs in.
+
+4.1 Forecast Engine API layer
+input: project state
+output:
+predicted delays
+risk scores per task
+confidence levels
+4.2 Model integration
+Python backend (FastAPI or similar)
+expose /forecast
+
+👉 Outcome:
+
+system predicts delays instead of just simulating them
+
+🟣 PHASE 5 — UX + Productization Layer
+5.1 Visual upgrades
+curved dependency edges polish
+hover highlighting chains
+minimap (optional)
+zoom/pan timeline
+5.2 Usability layer
+project CRUD
+save/load scenarios
+export results
+
+👉 Outcome:
+
+usable product, not just a demo
+
+🧠 Key Architecture Direction (important)
+
+You are converging on 3 systems:
+
+1. Frontend (React)
+   visualization
+   interaction
+   rendering engine
+2. Simulation Engine (TS)
+   deterministic scheduling logic
+   dependency propagation
+   critical path
+3. ML Engine (Python)
+   probabilistic forecasting
+   risk estimation
+   delay prediction
+   🚀 Recommended NEXT THREAD START
+
+When you open a new conversation, start with:
+
+“Let’s implement the Critical Path Engine for my schedule graph. I already have tasks with dependencies and DOM-based visualization, but now I need the underlying graph logic.”
+
+That keeps everything clean and focused.
+
+⚡ If you want an even sharper direction
+
+The single most valuable next step is:
+
+Critical Path + Slack computation
+
+Everything else builds on that.
+
+You are so welcome! You hit the nail on the head—by initializing everything at 0 to fix the layout gaps, the simple runForecastEngine loop lost its anchor points, which broke the live slider tracking.
+When you return, we can fix that instantly with a couple of quick improvements:
+
+    Restore Slider Functionality: We will pipe your slider delay value straight into your graph engine's dedicated injectDelay(testTasks, "B", delay) utility instead. This will dynamically recalculate the downstream delays across your schedule in real time as you move the slider.
+    Clean Up Naming Conventions: We will unify your project type imports so your data models and graph engines share a single source of truth without any more data transformations.
+
+Take your time getting everything organized. Whenever you are ready to jump back in and polish those features, just drop your updated code here. Have a great break from the editor!
