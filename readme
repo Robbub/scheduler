@@ -146,3 +146,12 @@ When you return, we can fix that instantly with a couple of quick improvements:
     Clean Up Naming Conventions: We will unify your project type imports so your data models and graph engines share a single source of truth without any more data transformations.
 
 Take your time getting everything organized. Whenever you are ready to jump back in and polish those features, just drop your updated code here. Have a great break from the editor!
+
+6/4/2026 11:32 AM
+
+Fix task bars overlapping the row header when scrolling left/right
+
+Implement Real-World Calendar with national holidays based on location
+Allow for event holidays to be added to automatically shift schedule
+
+Implement live adding/removing/editing of tasks within the webapp
