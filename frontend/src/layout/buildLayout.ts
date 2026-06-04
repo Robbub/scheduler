@@ -10,11 +10,11 @@ export function buildLayout(
 ): LayoutTask[] {
   return metrics.map((task, index) => {
     const start = task.es;
-    const withInDays = task.ef - task.es;
+    const widthInDays = task.ef - task.es;
 
     const y = index * ROW_HEIGHT;
     const x = LABEL_WIDTH + start * DAY_WIDTH;
-    const width = withInDays * DAY_WIDTH;
+    const width = widthInDays * DAY_WIDTH;
 
     return {
       id: task.id,

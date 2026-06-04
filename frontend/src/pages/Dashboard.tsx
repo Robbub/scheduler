@@ -1,7 +1,7 @@
-import { projects } from "../mocks/projects";
+import { testTasks } from "../mocks/testSchedule";
 
 export default function Dashboard() {
-  const project = projects[0];
+  const project = testTasks[0];
 
   return (
     <div className="space-y-6">
@@ -10,19 +10,19 @@ export default function Dashboard() {
       <div className="grid grid-cols-3 gap-4">
         <div className="p-4 bg-white border rounded">
           <p className="text-sm text-gray-500">Delay Risk</p>
-          <p className="text-xl font-bold">{project.forecast.delayDays} days</p>
+          {/* <p className="text-xl font-bold">{project.forecast.delayDays} days</p> */}
         </div>
 
         <div className="p-4 bg-white border rounded">
           <p className="text-sm text-gray-500">Confidence</p>
-          <p className="text-xl font-bold">
+          {/* <p className="text-xl font-bold">
             {project.forecast.confidence * 100}%
-          </p>
+          </p> */}
         </div>
 
         <div className="p-4 bg-white border rounded">
           <p className="text-sm text-gray-500">Active Projects</p>
-          <p className="text-xl font-bold">{projects.length}</p>
+          {/* <p className="text-xl font-bold">{projects.length}</p> */}
         </div>
       </div>
 
