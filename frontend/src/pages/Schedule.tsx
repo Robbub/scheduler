@@ -4,12 +4,18 @@ import { testTasks } from "../mocks/testSchedule";
 import { injectDelay } from "../engine/simulation/delayPropagation";
 import GanttChart from "../components/gantt/ganttChart";
 
+const DEFAULT_START_DATE = "2026-06-01";
+const MIN_DATE = "2026-01-01";
+const MAX_DATE = "2026-12-31";
+
 const criticalPathResults = computeCriticalPath(testTasks);
 console.log(criticalPathResults);
 const injectResults = injectDelay(testTasks, "B", 3);
 console.log(injectResults);
 
 export default function Schedule() {
+  const [viewMode, setViewMode] = useState<"day" | "week" | "month">("day");
+  const [projectStartDate, setProjectStartDate] = useState(DEFAULT_START_DATE);
   const [globalDelay, setGlobalDelay] = useState(0);
   const [taskDelays, setTaskDelays] = useState<Record<string, number>>(() =>
     Object.fromEntries(testTasks.map((t) => [t.id, 0])),
@@ -17,6 +23,24 @@ export default function Schedule() {
   const [activeEditingTaskId, setActiveEditingTaskId] = useState<string | null>(
     null,
   );
+  const [holidays, setHolidays] = useState<string[]>([
+    "2026-01-01",
+    "2026-12-25",
+  ]);
+  const [newHolidayInput, setNewHolidayInput] = useState("");
+
+  const addHoliday = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newHolidayInput) return;
+    if (!holidays.includes(newHolidayInput)) {
+      setHolidays((prev) => [...prev, newHolidayInput].sort());
+    }
+    setNewHolidayInput("");
+  };
+
+  const removeHoliday = (dateStr: string) => {
+    setHolidays((prev) => prev.filter((d) => d !== dateStr));
+  };
 
   const graphResults = useMemo(() => {
     const processedTasks = testTasks.map((task) => {
@@ -121,9 +145,52 @@ export default function Schedule() {
             </div>
           </div>
         </div>
-        <div className="hidden md:block bg-gray-50/50 border border-dashed rounded-lg p-4 text-xs text-gray-400 flex flex-col justify-center">
-          Select any timeline track row below to configure granular task
-          parameters.
+
+        <div className="bg-white border rounded-lg p-4 shadow-sm flex flex-col justify-between space-y-3 h-full">
+          <div>
+            <h3 className="font-bold text-xs uppercase tracking-wider text-gray-700 border-b pb-1.5">
+              Holiday Exception Registry
+            </h3>
+            <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pt-2">
+              {holidays.length === 0 ? (
+                <p className="text-[11px] text-gray-400 italic">
+                  No non-working exceptions declared.
+                </p>
+              ) : (
+                holidays.map((date) => (
+                  <span
+                    key={date}
+                    className="inline-flex items-center gap-1 bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
+                  >
+                    {date.substring(5)}
+                    <button
+                      onClick={() => removeHoliday(date)}
+                      className="text-red-400 hover:text-red-600 font-sans font-bold text-[9px] ml-0.5"
+                    >
+                      X
+                    </button>
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+
+          <form onSubmit={addHoliday} className="flex gap-1 pt-1 border-t">
+            <input
+              type="date"
+              value={newHolidayInput}
+              min={MIN_DATE}
+              max={MAX_DATE}
+              onChange={(e) => setNewHolidayInput(e.target.value)}
+              className="border rounded px-1.5 py-1 text-xs font-medium bg-gray-50 focus:outline-indigo-600 w-full cursor-pointer"
+            />
+            <button
+              type="submit"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-2.5 rounded transition shadow-sm"
+            >
+              +
+            </button>
+          </form>
         </div>
       </div>
 
@@ -132,6 +199,9 @@ export default function Schedule() {
           metrics={metrics}
           criticalPath={criticalPath}
           taskDelays={taskDelays}
+          viewMode={viewMode}
+          projectStartDate={projectStartDate}
+          holidayList={holidays}
           onRowClick={(id) => setActiveEditingTaskId(id)}
         />
       </div>
