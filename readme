@@ -152,6 +152,6 @@ Take your time getting everything organized. Whenever you are ready to jump back
 Fix task bars overlapping the row header when scrolling left/right : DONE
 
 Implement Real-World Calendar with national holidays based on location
-Allow for event holidays to be added to automatically shift schedule
+Allow for event holidays to be added to automatically shift schedule : DONE
 
 Implement live adding/removing/editing of tasks within the webapp
