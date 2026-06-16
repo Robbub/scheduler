@@ -13,7 +13,16 @@ console.log(criticalPathResults);
 const injectResults = injectDelay(testTasks, "B", 3);
 console.log(injectResults);
 
+// export interface Task {
+//   id: string;
+//   name: string;
+//   start: string;
+//   duration: number;
+//   dependsOn: string[];
+// }
+
 export default function Schedule() {
+  const [tasks, setTasks] = useState<Task[]>(testTasks);
   const [viewMode, setViewMode] = useState<"day" | "week" | "month">("day");
   const [projectStartDate, setProjectStartDate] = useState(DEFAULT_START_DATE);
   const [globalDelay, setGlobalDelay] = useState(0);
@@ -42,6 +51,39 @@ export default function Schedule() {
     setHolidays((prev) => prev.filter((d) => d !== dateStr));
   };
 
+  const handleCreateTask = () => {
+    const newId = `TASK-${Date.now()}`;
+    const newTask: Task = {
+      id: newId,
+      name: "New Scheduled Task",
+      start: projectStartDate,
+      duration: 5,
+      dependsOn: [],
+    };
+    setTasks((prev) => [...prev, newTask]);
+    setTasksDelays((prev) => ({ ...prev, [newId]: 0 }));
+    setActiveEditingTaskId(newId);
+  };
+
+  const handleUpdateTask = (id: string, updatedFields: Partial<Task>) => {
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === id ? { ...task, ...updatedFields } : task,
+      ),
+    );
+  };
+
+  const handleDeleteTask = (id: string) => {
+    setTasks((prev) => prev.filter((task) => task.id !== id));
+    setTasks((prev) =>
+      prev.map((task) => ({
+        ...task,
+        dependsOn: task.dependsOn.filter((depId) => depId !== id),
+      })),
+    );
+    if (activeEditingTaskId === id) setActiveEditingTaskId(null);
+  };
+
   const graphResults = useMemo(() => {
     const processedTasks = testTasks.map((task) => {
       const addedTaskDelay = taskDelays[task.id] ?? 0;
@@ -65,7 +107,7 @@ export default function Schedule() {
       })),
       projectDuration: results.projectDuration + globalDelay,
     };
-  }, [globalDelay, taskDelays]);
+  }, [tasks, globalDelay, taskDelays]);
 
   const baselineResults = useMemo(() => {
     const normalized = testTasks.map((t) => ({
@@ -73,7 +115,7 @@ export default function Schedule() {
       dependsOn: t.dependsOn ?? [],
     }));
     return computeCriticalPath(normalized);
-  }, []);
+  }, [tasks]);
 
   const metrics = graphResults.tasks;
   const criticalPath = graphResults.criticalPath;
@@ -81,9 +123,7 @@ export default function Schedule() {
   const netSlippage =
     graphResults.projectDuration - baselineResults?.projectDuration;
 
-  const currentEditingTask = testTasks.find(
-    (t) => t.id === activeEditingTaskId,
-  );
+  const currentEditingTask = tasks.find((t) => t.id === activeEditingTaskId);
 
   return (
     <div className="space-y-6 p-4 max-w-7xl mx-auto relative">
@@ -96,15 +136,23 @@ export default function Schedule() {
             Click any task row on the chart to inject targeted delays.
           </p>
         </div>
-        <button
-          onClick={() => {
-            setGlobalDelay(0);
-            setTaskDelays(Object.fromEntries(testTasks.map((t) => [t.id, 0])));
-          }}
-          className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition shadow-sm"
-        >
-          Reset Simulation
-        </button>
+        <div>
+          <button
+            onClick={handleCreateTask}
+            className="px-3 py-2 text-xs font-bold text-white bg-indigo-600 rounded hover:bg-indigo-700 transition shadow-sm"
+          >
+            + Create Task
+          </button>
+          <button
+            onClick={() => {
+              setGlobalDelay(0);
+              setTaskDelays(Object.fromEntries(tasks.map((t) => [t.id, 0])));
+            }}
+            className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition shadow-sm"
+          >
+            Reset Simulation
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -203,6 +251,12 @@ export default function Schedule() {
           projectStartDate={projectStartDate}
           holidayList={holidays}
           onRowClick={(id) => setActiveEditingTaskId(id)}
+          onTaskDateChange={(id, newStartDate, newDuration) => {
+            handleUpdateTask(id, {
+              start: newStartDate,
+              duration: newDuration,
+            });
+          }}
         />
       </div>
 
@@ -226,26 +280,122 @@ export default function Schedule() {
               </button>
             </div>
 
-            <div className="space-y-3 py-2">
-              <div className="flex justify-between text-xs font-semibold">
-                <span className="text-gray-600">Injected Buffer Delay:</span>
-                <span className="text-amber-600 font-black text-sm">
-                  +{taskDelays[currentEditingTask.id] ?? 0} Days
-                </span>
+            <div className="sapce-y-3 py-1 text-xs">
+              <div className="flex flex-col gap-1">
+                <label className="font-semibold text-gray-600">Task Name</label>
+                <input
+                  type="text"
+                  value={currentEditingTask.name}
+                  onChange={(e) =>
+                    handleUpdateTask(currentEditingTask.id, {
+                      name: e.target.value,
+                    })
+                  }
+                  className="border rounded p-2 bg-gray-50 focus:outline-indigo-600 font-medium"
+                />
               </div>
-              <input
-                type="range"
-                min={0}
-                max={15}
-                value={taskDelays[currentEditingTask.id] ?? 0}
-                onChange={(e) =>
-                  setTaskDelays((prev) => ({
-                    ...prev,
-                    [currentEditingTask.id]: Number(e.target.value),
-                  }))
-                }
-                className="w-full h-2 bg-gray-200 rounded accent-amber-500 cursor-pointer"
-              />
+
+              <div className="grid-cols-2 gap-2">
+                <div className="flex flex-col gap-1">
+                  <label className="font-semibold text-gray-600">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    min={MIN_DATE}
+                    max={MAX_DATE}
+                    value={currentEditingTask.start}
+                    onChange={(e) =>
+                      handleUpdateTask(currentEditingTask.id, {
+                        start: e.target.value,
+                      })
+                    }
+                    className="border rounded p-2 bg-gray-50 focus:outline-indigo-600 font-mono"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="font-semibold text-gray-600">
+                    Base Duration (Days)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={currentEditingTask.duration}
+                    onChange={(e) =>
+                      handleUpdateTask(currentEditingTask.id, {
+                        duration: Math.max(1, Number(e.target.value)),
+                      })
+                    }
+                    className="border rounded p-2 bg-gray-50 focus:outline-indigo-600 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label></label>
+                <div>
+                  {tasks
+                    .filter((t) => t.id !== currentEditingTask.id)
+                    .map((t) => {
+                      const isChecked = currentEditingTask.depndsOn?.inlucdes(
+                        t.id,
+                      );
+                      return (
+                        <label
+                          key={t.id}
+                          className="flex items-center gap-2 cursor-pointer font-medium text-gray-700"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            className="accent-indigo-600 rounded"
+                            onChange={() => {
+                              const nextDeps = isChecked
+                                ? currentEditingTask.dependsOn.filter(
+                                    (depId) => depId !== t.id,
+                                  )
+                                : [
+                                    ...(currentEditingTask.dependsOn ?? []),
+                                    t.id,
+                                  ];
+                              handleUpdateTask(currentEditingTask.id, {
+                                dependsOn: nextDeps,
+                              });
+                            }}
+                          />
+                          <span className="font-mono text-[11px] text-gray-500">
+                            [{t.id}]
+                          </span>{" "}
+                          {t.name}
+                        </label>
+                      );
+                    })}
+                </div>
+              </div>
+
+              <div className="space-y-1 pt-2 border-t">
+                <div className="flex justify-between text-xs font-semibold">
+                  <span className="text-gray-600">Injected Buffer Delay:</span>
+                  <span className="text-amber-600 font-black text-sm">
+                    +{taskDelays[currentEditingTask.id] ?? 0} Days
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={15}
+                  value={taskDelays[currentEditingTask.id] ?? 0}
+                  onChange={(e) =>
+                    setTaskDelays((prev) => ({
+                      ...prev,
+                      [currentEditingTask.id]: Number(e.target.value),
+                    }))
+                  }
+                  className="w-full h-2 bg-gray-200 rounded accent-amber-500 cursor-pointer"
+                />
+              </div>
+
               <div className="bg-gray-50 rounded p-2.5 border text-[11px] text-gray-500 space-y-1">
                 <div>
                   Base Task Work Duration:{" "}
@@ -255,7 +405,7 @@ export default function Schedule() {
                 </div>
                 <div>
                   Total Combined Duration:{" "}
-                  <span>
+                  <span className="font-bold text-slate-800">
                     {currentEditingTask.duration +
                       (taskDelays[currentEditingTask.id] ?? 0)}{" "}
                     Days
@@ -264,7 +414,13 @@ export default function Schedule() {
               </div>
             </div>
 
-            <div className="flex justify-end pt-2 border-t">
+            <div className="flex gap-2 pt-2 border-t">
+              <button
+                onClick={() => handleDeleteTask(currentEditingTask.id)}
+                className="px-3 bg-red-50 text-red-600 font-bold rounded-lg text-xs hover:bg-red-100 transition border border-red-200"
+              >
+                Delete Task
+              </button>
               <button
                 onClick={() => setActiveEditingTaskId(null)}
                 className="w-full bg-indigo-600 text-white font-bold py-2 rounded-lg text-xs hover:bg-indigo-700 transition"
