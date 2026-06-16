@@ -4,6 +4,11 @@ export type Task = {
   dependsOn: string[];
 };
 
+export type UiTask = Task & {
+  name: string;
+  start: string;
+};
+
 export type TaskMetrics = {
   id: string;
   name?: string;

@@ -3,31 +3,25 @@ import { computeCriticalPath } from "../engine/graph/criticalPath";
 import { testTasks } from "../mocks/testSchedule";
 import { injectDelay } from "../engine/simulation/delayPropagation";
 import GanttChart from "../components/gantt/ganttChart";
+import type { UiTask, TaskMetrics, Result } from "../engine/graph/types";
 
 const DEFAULT_START_DATE = "2026-06-01";
 const MIN_DATE = "2026-01-01";
 const MAX_DATE = "2026-12-31";
 
-const criticalPathResults = computeCriticalPath(testTasks);
-console.log(criticalPathResults);
-const injectResults = injectDelay(testTasks, "B", 3);
-console.log(injectResults);
-
-// export interface Task {
-//   id: string;
-//   name: string;
-//   start: string;
-//   duration: number;
-//   dependsOn: string[];
-// }
-
 export default function Schedule() {
-  const [tasks, setTasks] = useState<Task[]>(testTasks);
+  const [tasks, setTasks] = useState<UiTask[]>(() =>
+    testTasks.map((t) => ({
+      ...t,
+      name: (t as any).name ?? `Task ${t.id}`,
+      start: (t as any).start ?? DEFAULT_START_DATE,
+    })),
+  );
   const [viewMode, setViewMode] = useState<"day" | "week" | "month">("day");
   const [projectStartDate, setProjectStartDate] = useState(DEFAULT_START_DATE);
   const [globalDelay, setGlobalDelay] = useState(0);
   const [taskDelays, setTaskDelays] = useState<Record<string, number>>(() =>
-    Object.fromEntries(testTasks.map((t) => [t.id, 0])),
+    Object.fromEntries(tasks.map((t) => [t.id, 0])),
   );
   const [activeEditingTaskId, setActiveEditingTaskId] = useState<string | null>(
     null,
@@ -51,9 +45,9 @@ export default function Schedule() {
     setHolidays((prev) => prev.filter((d) => d !== dateStr));
   };
 
-  const handleCreateTask = () => {
+  const handleCreateTask = (): void => {
     const newId = `TASK-${Date.now()}`;
-    const newTask: Task = {
+    const newTask: UiTask = {
       id: newId,
       name: "New Scheduled Task",
       start: projectStartDate,
@@ -61,16 +55,19 @@ export default function Schedule() {
       dependsOn: [],
     };
     setTasks((prev) => [...prev, newTask]);
-    setTasksDelays((prev) => ({ ...prev, [newId]: 0 }));
+    setTaskDelays((prev) => ({ ...prev, [newId]: 0 }));
     setActiveEditingTaskId(newId);
   };
 
-  const handleUpdateTask = (id: string, updatedFields: Partial<Task>) => {
-    setTasks((prev) =>
-      prev.map((task) =>
+  const handleUpdateTask = (id: string, updatedFields: Partial<UiTask>) => {
+    console.log("Drag completed for:", id, "Fields:", updatedFields);
+    setTasks((prev) => {
+      const nextTasks = prev.map((task) =>
         task.id === id ? { ...task, ...updatedFields } : task,
-      ),
-    );
+      );
+      console.log("Next state array:", nextTasks);
+      return nextTasks;
+    });
   };
 
   const handleDeleteTask = (id: string) => {
@@ -85,7 +82,7 @@ export default function Schedule() {
   };
 
   const graphResults = useMemo(() => {
-    const processedTasks = testTasks.map((task) => {
+    const processedTasks = tasks.map((task) => {
       const addedTaskDelay = taskDelays[task.id] ?? 0;
 
       return {
@@ -94,8 +91,12 @@ export default function Schedule() {
         dependsOn: task.dependsOn ?? [],
       };
     });
-    const results = computeCriticalPath(processedTasks as any);
-    // Apply global delay to all task timings
+
+    const results = computeCriticalPath(
+      processedTasks as any,
+      projectStartDate,
+    );
+
     return {
       ...results,
       tasks: results.tasks.map((task) => ({
@@ -107,15 +108,15 @@ export default function Schedule() {
       })),
       projectDuration: results.projectDuration + globalDelay,
     };
-  }, [tasks, globalDelay, taskDelays]);
+  }, [tasks, globalDelay, taskDelays, projectStartDate]);
 
   const baselineResults = useMemo(() => {
-    const normalized = testTasks.map((t) => ({
+    const normalized = tasks.map((t) => ({
       ...t,
       dependsOn: t.dependsOn ?? [],
     }));
-    return computeCriticalPath(normalized);
-  }, [tasks]);
+    return computeCriticalPath(normalized, projectStartDate);
+  }, [tasks, projectStartDate]);
 
   const metrics = graphResults.tasks;
   const criticalPath = graphResults.criticalPath;
@@ -338,7 +339,7 @@ export default function Schedule() {
                   {tasks
                     .filter((t) => t.id !== currentEditingTask.id)
                     .map((t) => {
-                      const isChecked = currentEditingTask.depndsOn?.inlucdes(
+                      const isChecked = currentEditingTask.dependsOn?.includes(
                         t.id,
                       );
                       return (

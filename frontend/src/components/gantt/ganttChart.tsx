@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { TaskMetrics, LayoutTask } from "../../engine/graph/types";
 import { buildLayout } from "../../layout/buildLayout";
 import { isWorkingDay } from "../../engine/dateEngine";
@@ -18,10 +18,10 @@ function DependencyLines({
 }) {
   return (
     <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-10">
-      {metrics.flatMap((metrics) =>
-        (metrics.dependsOn || []).map((depId) => {
+      {metrics.flatMap((metricItem) =>
+        (metricItem.dependsOn || []).map((depId) => {
           const from = layoutMap[depId];
-          const to = layoutMap[metrics.id];
+          const to = layoutMap[metricItem.id];
 
           if (!from || !to) return null;
 
@@ -39,7 +39,7 @@ function DependencyLines({
 
           return (
             <path
-              key={`${depId}-${metrics.id}`}
+              key={`${depId}-${metricItem.id}`}
               d={d}
               fill="none"
               stroke={isThreadCritical ? "#f87171" : "#9ca3af"}
@@ -61,6 +61,11 @@ type GanttChartProps = {
   projectStartDate?: string;
   viewMode: "day" | "week" | "month";
   holidayList: string[];
+  onTaskDateChange: (
+    id: string,
+    newStartDate: string,
+    newDuration: number,
+  ) => void;
 };
 
 export default function GanttChart({
@@ -71,6 +76,7 @@ export default function GanttChart({
   projectStartDate = TEST_PROJECT_START_DATE,
   viewMode,
   holidayList,
+  onTaskDateChange,
 }: GanttChartProps) {
   const COLUMN_WIDTH = viewMode === "day" ? 40 : viewMode === "week" ? 80 : 120;
 
@@ -128,6 +134,63 @@ export default function GanttChart({
     });
   }, [projectStartDate, viewMode, holidayList]);
 
+  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+  const [dragOffsetDays, setDragOffsetDays] = useState<number>(0);
+  const isDraggingRef = useMemo(() => ({ current: false }), []);
+
+  const handleStartDragTask = (e: React.MouseEvent, layoutTask: LayoutTask) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    isDraggingRef.current = false;
+    const startX = e.clientX;
+    setDraggingTaskId(layoutTask.id);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (Math.abs(moveEvent.clientX - startX) > 3) {
+        isDraggingRef.current = true;
+      }
+      const deltaX = moveEvent.clientX - startX;
+      const shiftedColumns = Math.round(deltaX / COLUMN_WIDTH);
+      setDragOffsetDays(shiftedColumns);
+    };
+
+    const handleMouseUp = (upEvent: MouseEvent) => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+
+      const finalDeltaX = upEvent.clientX - startX;
+      const finalShiftedColumns = Math.round(finalDeltaX / COLUMN_WIDTH);
+
+      if (isDraggingRef.current && finalShiftedColumns !== 0) {
+        const baseDate = new Date(projectStartDate + "T00:00:00");
+
+        const currentTaskMetric = metrics.find((m) => m.id === layoutTask.id);
+        const baseOffset = currentTaskMetric ? currentTaskMetric.es : 0;
+
+        baseDate.setDate(baseDate.getDate() + baseOffset + finalShiftedColumns);
+
+        const year = baseDate.getFullYear();
+        const month = String(baseDate.getMonth() + 1).padStart(2, "0");
+        const day = String(baseDate.getDate()).padStart(2, "0");
+        const nextDateStr = `${year}-${month}-${day}`;
+
+        const duration = layoutTask.endX - layoutTask.startX;
+        const mappedDuration = Math.max(1, Math.round(duration / COLUMN_WIDTH));
+
+        onTaskDateChange(layoutTask.id, nextDateStr, mappedDuration);
+      }
+
+      setTimeout(() => {
+        setDraggingTaskId(null);
+        setDragOffsetDays(0);
+      }, 50);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
   return (
     <div className="relative overflow-x-auto border rounded-lg bg-white shadow-inner w-full max-w-full">
       <div style={{ minWidth: `${200 + TOTAL_COLUMNS * COLUMN_WIDTH}px` }}>
@@ -170,10 +233,14 @@ export default function GanttChart({
             return (
               <div
                 key={metric.id}
-                onClick={() => onRowClick(metric.id)}
+                onClick={() => {
+                  if (!isDraggingRef.current) {
+                    onRowClick(metric.id);
+                  }
+                }}
                 className={`
                   grid border-b items-center cursor-pointer transition-colors duration-150 group
-                  ${isCritical ? "bg-red-50/20 hover:bg-red-100/30" : "hover.bg-slate-50"}
+                  ${isCritical ? "bg-red-50/20 hover:bg-red-100/30" : "hover:bg-slate-50"}
                 `}
                 style={{
                   gridTemplateColumns: `200px repeat(${TOTAL_COLUMNS}, minmax(${COLUMN_WIDTH}px, 1fr))`,
@@ -225,27 +292,37 @@ export default function GanttChart({
             if (!metric) return null;
 
             const isCritical = criticalPath.includes(layoutTask.id);
+            const isCurrentlyDragged = draggingTaskId === layoutTask.id;
+            const horizontalVisualOffset = isCurrentlyDragged
+              ? dragOffsetDays * COLUMN_WIDTH
+              : 0;
 
             return (
               <div
                 key={layoutTask.id}
+                onMouseDown={(e) => handleStartDragTask(e, layoutTask)}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onRowClick(layoutTask.id);
+                  if (!isDraggingRef.current) {
+                    onRowClick(layoutTask.id);
+                  }
                 }}
                 className={`
                   absolute h-6 rounded z-10 shadow-sm flex items-center justify-center text-[10px] text-white font-bold transition-all duration-200 ease-in-out px-2 cursor-pointer select-none group hover:scale-[1.01] hover:shadow-md
                   ${isCritical ? "bg-red-500 border border-red-600" : "bg-indigo-500 border border-indigo-600"}  
                 `}
                 style={{
-                  left: layoutTask.x,
+                  left: layoutTask.x + horizontalVisualOffset,
                   width: layoutTask.width,
                   top: layoutTask.y + (ROW_HEIGHT - 24) / 2,
+                  transition: isCurrentlyDragged
+                    ? "none"
+                    : "all 0.2s ease-in-out",
                 }}
               >
                 <span className="truncate pr-1">Task {layoutTask.name}</span>
                 {metric.slack > 0 && (
-                  <span className="bg-white/20 px-1 rounded text-[8px] front-normal shrink-0">
+                  <span className="bg-white/20 px-1 rounded text-[8px] font-normal shrink-0">
                     +{metric.slack} Slack
                   </span>
                 )}
