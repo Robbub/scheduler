@@ -334,7 +334,7 @@ export default function Schedule() {
               </div>
 
               <div>
-                <label></label>
+                <label>What Label?</label>
                 <div>
                   {tasks
                     .filter((t) => t.id !== currentEditingTask.id)

@@ -332,9 +332,5 @@ export default function GanttChart({
         </div>
       </div>
     </div>
-    //   <div>
-    //     <pre>{JSON.stringify(criticalPathResults, null, 2)}</pre>
-    //     <pre>{JSON.stringify(injectResults, null, 2)}</pre>
-    //   </div>
   );
 }
